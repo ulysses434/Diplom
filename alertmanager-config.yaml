@@ -1,0 +1,27 @@
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'telegram'
+      routes:
+      - match:
+          severity: critical
+        receiver: telegram
+    receivers:
+    - name: 'telegram'
+      telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          Авария: {{ .Labels.alertname }}
+          Описание: {{ .Annotations.description }}
+          Статус: {{ .Status }}
+          {{ end }}
+    templates: []

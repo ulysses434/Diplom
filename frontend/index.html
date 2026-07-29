@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Пельменная NK</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: auto; text-align: center; background: #f9f9f9; }
+        .product { display: inline-block; margin: 20px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        img { width: 200px; height: 200px; object-fit: cover; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>🥟 Пельменная NK</h1>
+    <div id="products"></div>
+    <script>
+        fetch('/api/products')
+            .then(res => res.json())
+            .then(products => {
+                const div = document.getElementById('products');
+                products.forEach(p => {
+                    div.innerHTML += `
+                        <div class="product">
+                            <img src="${p.image}" alt="${p.name}">
+                            <h3>${p.name}</h3>
+                            <p><strong>${p.price} ₽</strong></p>
+                        </div>`;
+                });
+            });
+    </script>
+</body>
+</html>

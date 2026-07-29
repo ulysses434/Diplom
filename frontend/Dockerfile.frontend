@@ -1,0 +1,17 @@
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM nginx:alpine
+# Копируем результат сборки в корень Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
+# Создаём папку momo-store и явно копируем все нужные файлы
+RUN mkdir -p /usr/share/nginx/html/momo-store && \
+    cd /usr/share/nginx/html && \
+    cp -r css js img index.html favicon.ico _redirects 50x.html momo-store/ 2>/dev/null || true
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

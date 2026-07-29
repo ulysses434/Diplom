@@ -1,0 +1,82 @@
+stages:
+  - test
+  - build
+  - package
+  - deploy
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
+variables:
+  DOCKER_IMAGE_BACKEND: $CI_REGISTRY_IMAGE/backend
+  DOCKER_IMAGE_FRONTEND: $CI_REGISTRY_IMAGE/frontend
+
+test:
+  stage: test
+  image: golang:1.23-alpine
+  script:
+    - cd backend
+    - go test ./... -v || true
+  only:
+    - main
+    - tags
+
+lint:
+  stage: test
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npx eslint . --ext .js,.vue || true
+  allow_failure: true
+  only:
+    - main
+    - tags
+
+build:
+  stage: build
+  image: gcr.io/kaniko-project/executor:debug
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile Dockerfile.backend --destination $DOCKER_IMAGE_BACKEND:$CI_COMMIT_SHORT_SHA
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile Dockerfile.frontend --destination $DOCKER_IMAGE_FRONTEND:$CI_COMMIT_SHORT_SHA
+  only:
+    - main
+    - tags
+
+package:
+  stage: package
+  image: dtzar/helm-kubectl:latest
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | helm registry login $CI_REGISTRY --username $CI_REGISTRY_USER --password-stdin
+    - cd helm
+    - helm package nk-app --version 0.1.$CI_PIPELINE_ID --app-version $CI_COMMIT_SHORT_SHA
+    - helm push nk-app-*.tgz oci://$CI_REGISTRY_IMAGE/helm
+  only:
+    - main
+    - tags
+
+deploy:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  script:
+    - export KUBECONFIG=$KUBECONFIG
+    - kubectl get nodes
+    - helm upgrade --install nk-app ./helm/nk-app
+      --set backend.image.tag=$CI_COMMIT_SHORT_SHA
+      --set frontend.image.tag=$CI_COMMIT_SHORT_SHA
+      --namespace default
+    - kubectl rollout restart deployment/backend deployment/frontend --namespace default
+    - kubectl rollout status deployment/backend --namespace default --timeout=120s
+    - kubectl rollout status deployment/frontend --namespace default --timeout=120s
+    - apk add --no-cache gettext
+    - envsubst < alertmanager-config.yaml > alertmanager-config-final.yaml
+    - helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    - helm repo update
+    - helm upgrade monitoring prometheus-community/kube-prometheus-stack
+      --namespace monitoring
+      --reuse-values
+      -f alertmanager-config-final.yaml
+  only:
+    - main
+    - tags

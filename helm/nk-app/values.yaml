@@ -1,0 +1,22 @@
+backend:
+  image:
+    repository: gitlab.praktikum-services.ru:5050/std-ext-028-45/momo-store/backend
+    tag: latest
+  service:
+    port: 8080
+  env:
+    S3_URL: "https://nk-static-bucket-ulysses43.website.yandexcloud.net"
+    HOST: "0.0.0.0"
+
+frontend:
+  image:
+    repository: gitlab.praktikum-services.ru:5050/std-ext-028-45/momo-store/frontend
+    tag: latest
+  service:
+    type: LoadBalancer
+
+s3:
+  url: "https://nk-static-bucket-ulysses43.website.yandexcloud.net"
+
+imagePullSecrets:
+  - name: gitlab-regcred
