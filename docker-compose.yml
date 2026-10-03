@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: momo-store/backend:local
+    container_name: momo-backend
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - momo-store
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: momo-store/frontend:local
+    container_name: momo-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - momo-store
+
+networks:
+  momo-store:
+    driver: bridge

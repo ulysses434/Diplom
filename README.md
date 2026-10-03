@@ -24,6 +24,68 @@
 - `prometheus-rules.yaml` — правила алертов.
 - `README.md` — настоящий документ.
 
+## Локальный запуск (Docker Compose)
+
+Приложение можно запустить целиком на локальной машине без Kubernetes,
+Terraform и облачных сервисов — только через Docker Compose.
+
+### Предварительные требования
+
+- Docker Engine 20.10+ и Docker Compose v2.
+- Свободные порты `80` (фронтенд) и `8081` (backend).
+
+### Запуск
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+После старта откройте в браузере [http://localhost](http://localhost).
+
+Если порт `80` занят, замените в `docker-compose.yml` маппинг
+`"80:80"` на, например, `"8080:80"`.
+
+### Проверка работоспособности
+
+```bash
+# Каталог товаров (14 позиций)
+curl -s http://localhost/api/products
+
+# Категории
+curl -s http://localhost/api/categories
+
+# Здоровье backend
+curl -s http://localhost:8081/health
+
+# Метрики Prometheus
+curl -s http://localhost:8081/metrics
+```
+
+### Остановка
+
+```bash
+docker compose down
+docker compose down -v   # дополнительно удалить тома (если есть)
+```
+
+### Устройство сервисов
+
+| Сервис    | Порт (контейнер) | Порт (хост) | Описание                          |
+|-----------|------------------|-------------|-----------------------------------|
+| backend   | 8081             | 8081        | REST API на Go (chi), метрики     |
+| frontend  | 80               | 80          | Nginx + SPA (Vue.js), прокси /api |
+
+### Известные ограничения
+
+- Backend использует in-memory (fake) хранилище: товары захардкожены в
+  [`dependencies/store.go`](backend/cmd/api/dependencies/store.go), заказы
+  не сохраняются между перезапусками.
+- Эндпоинты `/auth/login`, `/auth/logout`, `/auth/change-password` и `/csrf`
+  в Go-бэкенде не реализованы — страница входа работать не будет. Каталог,
+  категории и корзина (клиентская, в localStorage) работают.
+- Изображения товаров подгружаются с внешнего CDN (`res.cloudinary.com`).
+
 ## Развёртывание инфраструктуры
 1. Установите Yandex Cloud CLI и настройте профиль, указав
    авторизованный ключ сервисного аккаунта `terraform-sa`.
